@@ -31,11 +31,18 @@
   `;
   micSVG.className = "botao-mic";
 
+  // Ícone SVG da engrenagem (configurações)
+  const settingsIcon = document.createElement("button");
+  settingsIcon.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a1.65 1.65 0 1 1-2.34 2.34l-.06-.06a1.65 1.65 0 0 0-1.82-.33h-.1a1.65 1.65 0 0 0-1 1.51V20a1.65 1.65 0 0 1-3.3 0v-.1a1.65 1.65 0 0 0-1-1.51h-.08a1.65 1.65 0 0 0-1.82.33l-.06.06a1.65 1.65 0 0 1-2.34-2.34l.06-.06A1.65 1.65 0 0 0 5 15.4v-.08a1.65 1.65 0 0 0-1.51-1H4a1.65 1.65 0 0 1 0-3.3h.1A1.65 1.65 0 0 0 5.6 9.5V9.4a1.65 1.65 0 0 0-.33-1.82l-.06-.06A1.65 1.65 0 0 1 7.55 5.18l.06.06a1.65 1.65 0 0 0 1.82.33h.08a1.65 1.65 0 0 0 1-1.51V4a1.65 1.65 0 0 1 3.3 0v.1a1.65 1.65 0 0 0 1 1.51h.08a1.65 1.65 0 0 0 1.82-.33l.06-.06a1.65 1.65 0 1 1 2.34 2.34l-.06.06a1.65 1.65 0 0 0-.33 1.82v.08a1.65 1.65 0 0 0 1.51 1H20a1.65 1.65 0 0 1 0 3.3h-.1a1.65 1.65 0 0 0-1.5 1z"></path></svg>
+  `;
+  settingsIcon.className = "settings-icon";
+
   // Spectro de áudio
   const canvas = document.createElement("canvas");
   canvas.className = "audio-spectrum";
   canvas.width = 200;
-  canvas.height = 100;
+  canvas.height = 50;
 
   // Criar o spinner
   const spinner = document.createElement("div");
@@ -57,15 +64,17 @@
   }
 
   .modal h4 {
-    font-family: "Roboto", "Helvetica", sans-serif; /* Fonte mais moderna */
-    margin: 0 0 15px;
-    font-size: 18px; /* Tamanho de fonte maior */
-    color: #333; /* Cor de texto mais escura */
+      font-family: "Roboto", "Helvetica", sans-serif;
+      margin: 0 0 15px;
+      font-size: 18px;
+      color: #333;
+      display: inline; /* Altera para inline */
+      vertical-align: middle; /* Alinha verticalmente com o ícone */
   }
 
   .audio-spectrum {
     width: 100%;
-    height: 50px;
+    height: 30px;
     background-color: #f9f9f9;
     border-radius: 5px;
   }
@@ -119,7 +128,7 @@
 
   .botao-mic {
     cursor: pointer;
-    padding-top: 10px;
+    margin-top: 15px !important;
     border-radius: 50% !important;
     transition: transform 0.2s ease;
     display: block; /* Torna o elemento um bloco para controlar alinhamento */
@@ -142,13 +151,69 @@
     animation: spin 1s linear infinite;
   }
 
+  /* Novo estilo para o ícone de configurações */
+    .settings-icon {
+      background: none !important;
+      border: none;
+      cursor: pointer;
+      position: relative;
+      display: inline-block;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    .settings-icon svg {
+      width: 24px;
+      height: 24px;
+      stroke: #888;
+      transition: stroke 0.2s ease;
+    }
+
+    .settings-icon:hover svg {
+      stroke: #333;
+    }
+
+    /* Estilos para o modal de configurações */
+    .settings-modal {
+      display: none; /* Oculto por padrão */
+      background-color: #f9f9f9;
+      border: 1px solid #ddd;
+      padding: 20px;
+      width: 200px;
+      border-radius: 8px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+      position: absolute;
+      top: 50px; /* Ajuste conforme necessário */
+      right: 0;
+      z-index: 10001;
+    }
+
+    .settings-modal.show {
+      display: block;
+    }
+
+    .settings-modal h4 {
+      margin-top: 0;
+    }
+
+    .settings-modal button.close-settings {
+      position: absolute;
+      top: 7px;
+      right: 12px;
+      background: none;
+      border: none;
+      font-size: 14px;
+      color: #888;
+      cursor: pointer;
+    }
+
   @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
   }
   `;
 
-  // Criar o modal
+  // Criar o modal principal
   const modal = document.createElement("div");
   modal.className = "modal";
 
@@ -163,6 +228,55 @@
   closeButton.addEventListener("click", () => {
     document.body.removeChild(shadowHost);
     document.removeEventListener("focusin", updateLastFocusedElement);
+  });
+
+  // Criar o modal de configurações
+  const settingsModal = document.createElement("div");
+  settingsModal.className = "settings-modal";
+  // Header para o modal de configurações
+  const settingsHeader = document.createElement("h4");
+  settingsHeader.innerText = "Chave API";
+  // Botão de fechar para o modal de configurações
+  const closeSettingsButton = document.createElement("button");
+  closeSettingsButton.innerText = "✖";
+  closeSettingsButton.className = "close-settings";
+  closeSettingsButton.addEventListener("click", () => {
+    settingsModal.classList.remove("show");
+  });
+
+  // **Novo código para o campo de entrada da chave de API**
+  const apiKeyLabel = document.createElement("label");
+  apiKeyLabel.innerText = "Chave de API:";
+
+  const apiKeyInput = document.createElement("input");
+  apiKeyInput.type = "text";
+  apiKeyInput.placeholder = "Insira sua chave de API";
+
+  const saveApiKeyButton = document.createElement("button");
+  saveApiKeyButton.innerText = "Salvar Chave";
+
+  // Área para mensagens no modal de configurações
+  const settingsMessage = document.createElement("div");
+  settingsMessage.style.marginTop = "10px";
+
+  // Evento de clique para abrir o modal de configurações
+  settingsIcon.addEventListener("click", () => {
+    settingsModal.classList.toggle("show");
+  });
+
+  // Evento para salvar a chave de API
+  saveApiKeyButton.addEventListener("click", () => {
+    const apiKey = apiKeyInput.value.trim();
+    if (apiKey) {
+      // Armazenar a chave usando chrome.storage
+      chrome.storage.local.set({ GROQ_API_KEY: apiKey }, () => {
+        settingsMessage.style.color = "green";
+        settingsMessage.innerText = "Chave de API salva com sucesso!";
+      });
+    } else {
+      settingsMessage.style.color = "red";
+      settingsMessage.innerText = "Por favor, insira uma chave de API válida.";
+    }
   });
 
   // Área para mensagens de saída
@@ -243,40 +357,66 @@
     }
   });
 
+  // Função para carregar a chave de API armazenada
+  let GROQ_API_KEY = "";
+
+  const loadApiKey = () => {
+    chrome.storage.local.get("GROQ_API_KEY", (data) => {
+      if (data.GROQ_API_KEY) {
+        GROQ_API_KEY = data.GROQ_API_KEY;
+        apiKeyInput.value = GROQ_API_KEY; // Opcional: preencher o campo com a chave armazenada
+      } else {
+        output.innerText = "Por favor, defina sua chave de API.";
+      }
+    });
+  };
+
+  // Chamar a função ao iniciar
+  loadApiKey();
+
   // Função para enviar o áudio para a API do Groq
   const sendAudioToAPI = (audioBlob) => {
-    const GROQ_API_KEY =
-      "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"; // Substitua pela sua chave de API
+    // Carregar a chave de API atualizada
+    chrome.storage.local.get("GROQ_API_KEY", (data) => {
+      GROQ_API_KEY = data.GROQ_API_KEY || "";
 
-    const formData = new FormData();
-    formData.append("model", "whisper-large-v3-turbo");
-    formData.append("file", audioBlob, "audio.webm");
-    formData.append("response_format", "verbose_json");
-
-    fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${GROQ_API_KEY}`,
-      },
-      body: formData,
-    })
-      .then((response) => response.json())
-      .then((data) => {
+      if (!GROQ_API_KEY) {
+        output.innerText = "Chave de API não definida.";
         // Esconder o spinner
         spinner.style.display = "none";
+        return;
+      }
 
-        if (data.text) {
-          insertTextIntoField(data.text);
-        } else {
-          output.innerText = "Erro na transcrição do áudio.";
-        }
+      const formData = new FormData();
+      formData.append("model", "whisper-large-v3-turbo");
+      formData.append("file", audioBlob, "audio/webm");
+      formData.append("response_format", "verbose_json");
+
+      fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${GROQ_API_KEY}`,
+        },
+        body: formData,
       })
-      .catch((error) => {
-        console.error("Error:", error);
-        output.innerText = "Erro ao enviar o áudio para a API.";
-        // Esconder o spinner em caso de erro
-        spinner.style.display = "none";
-      });
+        .then((response) => response.json())
+        .then((data) => {
+          // Esconder o spinner
+          spinner.style.display = "none";
+
+          if (data.text) {
+            insertTextIntoField(data.text);
+          } else {
+            output.innerText = "Erro na transcrição do áudio.";
+          }
+        })
+        .catch((error) => {
+          console.error("Error:", error);
+          output.innerText = "Erro ao enviar o áudio para a API.";
+          // Esconder o spinner em caso de erro
+          spinner.style.display = "none";
+        });
+    });
   };
 
   // Função para inserir o texto no campo selecionado
@@ -382,13 +522,23 @@
     draw();
   }
 
+  // Montar o modal de configurações
+  settingsModal.appendChild(closeSettingsButton);
+  settingsModal.appendChild(settingsHeader);
+  settingsModal.appendChild(apiKeyLabel);
+  settingsModal.appendChild(apiKeyInput);
+  settingsModal.appendChild(saveApiKeyButton);
+  settingsModal.appendChild(settingsMessage);
+
   // Montar o modal
   modal.appendChild(closeButton);
   modal.appendChild(header);
+  modal.appendChild(settingsIcon);
   modal.appendChild(micSVG);
   modal.appendChild(canvas);
   modal.appendChild(spinner);
   modal.appendChild(output);
+  modal.appendChild(settingsModal); // Anexar o modal de configurações ao modal principal
 
   // Anexar o estilo e o modal ao Shadow Root
   shadowRoot.appendChild(style);
