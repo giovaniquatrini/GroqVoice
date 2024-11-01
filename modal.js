@@ -65,10 +65,9 @@
 
   .audio-spectrum {
     width: 100%;
-    height: 100px;
+    height: 50px;
     background-color: #f9f9f9;
-    border-radius: 4px;
-    margin-top: 10px;
+    border-radius: 5px;
   }
 
   .modal button {
@@ -288,7 +287,7 @@
         lastFocusedElement.tagName === "TEXTAREA"
       ) {
         lastFocusedElement.value = transcribedText;
-        output.innerText = "Texto inserido no campo selecionado.";
+        output.innerText = transcribedText;
       } else if (lastFocusedElement.isContentEditable) {
         lastFocusedElement.focus();
         const range = document.createRange();
@@ -296,7 +295,7 @@
         range.deleteContents();
         const textNode = document.createTextNode(transcribedText);
         range.insertNode(textNode);
-        output.innerText = "Texto inserido no campo selecionado.";
+        output.innerText = transcribedText;
       } else {
         output.innerText = "Elemento selecionado não é compatível.";
       }
