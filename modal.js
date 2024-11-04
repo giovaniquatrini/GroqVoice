@@ -139,6 +139,7 @@
     margin-top: 10px;
     font-size: 14px;
     color: #333;
+    white-space: pre-wrap; /* Permite quebras de linha */
   }
 
   .spinner {
@@ -244,7 +245,7 @@
     settingsModal.classList.remove("show");
   });
 
-  // **Novo código para o campo de entrada da chave de API**
+  // Campo de entrada da chave de API
   const apiKeyLabel = document.createElement("label");
   apiKeyLabel.innerText = "Chave de API:";
 
@@ -298,7 +299,7 @@
       .getUserMedia({ audio: true })
       .then((stream) => {
         // Inicializar MediaRecorder
-        mediaRecorder = new MediaRecorder(stream);
+        mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
         recordedChunks = [];
 
         mediaRecorder.ondataavailable = (e) => {
@@ -382,14 +383,13 @@
 
       if (!GROQ_API_KEY) {
         output.innerText = "Chave de API não definida.";
-        // Esconder o spinner
         spinner.style.display = "none";
         return;
       }
 
       const formData = new FormData();
       formData.append("model", "whisper-large-v3-turbo");
-      formData.append("file", audioBlob, "audio/webm");
+      formData.append("file", audioBlob, "audio.webm");
       formData.append("response_format", "verbose_json");
 
       fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
@@ -399,21 +399,25 @@
         },
         body: formData,
       })
-        .then((response) => response.json())
+        .then((response) => {
+          if (!response.ok) {
+            return response.json().then((errorData) => {
+              throw new Error(errorData.error.message);
+            });
+          }
+          return response.json();
+        })
         .then((data) => {
-          // Esconder o spinner
-          spinner.style.display = "none";
-
           if (data.text) {
             insertTextIntoField(data.text);
           } else {
             output.innerText = "Erro na transcrição do áudio.";
           }
+          spinner.style.display = "none";
         })
         .catch((error) => {
           console.error("Error:", error);
-          output.innerText = "Erro ao enviar o áudio para a API.";
-          // Esconder o spinner em caso de erro
+          output.innerText = `Erro: ${error.message}`;
           spinner.style.display = "none";
         });
     });
@@ -421,26 +425,43 @@
 
   // Função para inserir o texto no campo selecionado
   const insertTextIntoField = (transcribedText) => {
+    // Remover espaços em branco iniciais
+    transcribedText = transcribedText.trimStart();
+
     if (lastFocusedElement && !shadowHost.contains(lastFocusedElement)) {
       if (
         lastFocusedElement.tagName === "INPUT" ||
         lastFocusedElement.tagName === "TEXTAREA"
       ) {
-        lastFocusedElement.value = transcribedText;
+        // Adicionar o texto ao final do conteúdo existente
+        lastFocusedElement.value += transcribedText;
         output.innerText = transcribedText;
       } else if (lastFocusedElement.isContentEditable) {
+        // Inserir o texto na posição atual do cursor
         lastFocusedElement.focus();
-        const range = document.createRange();
-        range.selectNodeContents(lastFocusedElement);
-        range.deleteContents();
-        const textNode = document.createTextNode(transcribedText);
-        range.insertNode(textNode);
+
+        const sel = window.getSelection();
+        if (sel.rangeCount > 0) {
+          const range = sel.getRangeAt(0);
+          const textNode = document.createTextNode(transcribedText);
+          range.insertNode(textNode);
+
+          // Mover o cursor para depois do texto inserido
+          range.setStartAfter(textNode);
+          range.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(range);
+        } else {
+          // Se não houver seleção, adicionar ao final
+          lastFocusedElement.innerHTML += transcribedText;
+        }
+
         output.innerText = transcribedText;
       } else {
-        output.innerText = "Elemento selecionado não é compatível.";
+        output.innerText = `Elemento selecionado não é compatível.\n\n${transcribedText}`;
       }
     } else {
-      output.innerText = "Nenhum campo de texto selecionado.";
+      output.innerText = `Nenhum campo de texto selecionado.\n\n${transcribedText}`;
     }
   };
 
