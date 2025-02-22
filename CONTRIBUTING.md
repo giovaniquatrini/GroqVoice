@@ -8,10 +8,11 @@ Obrigado por considerar contribuir para o GroqVoice, uma extensão do Chrome que
    Clique no botão "Fork" no GitHub para criar uma cópia do repositório.
 
 2. **Crie uma Branch:**  
-   Faça checkout em uma nova branch para sua feature ou correção.  
-   \`\`\`bash
+   Faça checkout em uma nova branch para sua feature ou correção.
+
+   ```bash
    git checkout -b minha-feature
-   \`\`\`
+   ```
 
 3. **Faça suas Alterações:**  
    Implemente suas mudanças seguindo os padrões do projeto.
@@ -20,11 +21,12 @@ Obrigado por considerar contribuir para o GroqVoice, uma extensão do Chrome que
    Certifique-se de que suas alterações não interrompem a funcionalidade existente. Inclua testes se aplicável.
 
 5. **Commit e Push:**  
-   Realize commits claros e descritivos. Envie sua branch para o repositório remoto.  
-   \`\`\`bash
+   Realize commits claros e descritivos. Envie sua branch para o repositório remoto.
+
+   ```bash
    git commit -am "Adiciona nova feature ou correção"
    git push origin minha-feature
-   \`\`\`
+   ```
 
 6. **Abra um Pull Request:**  
    No repositório original, abra um Pull Request descrevendo suas alterações e o motivo da mudança.
