@@ -1,12 +1,18 @@
 {
   "manifest_version": 3,
-  "name": "GroqVoice 2",
-  "version": "2.0",
+  "name": "GroqVoice",
+  "version": "2.1",
   "description": "Facilitando sua vida através de IA.",
-  "permissions": ["storage","activeTab", "clipboardWrite", "scripting"],
+  "permissions": ["storage", "activeTab", "clipboardWrite", "scripting"],
   "host_permissions": ["https://api.groq.com/*"],
+  "icons": {
+    "16": "images/logo.png",
+    "48": "images/logo.png",
+    "128": "images/logo.png"
+  },
   "action": {
-    "default_icon": "images/microphone.png"
+    "default_icon": "images/microphone.png",
+    "default_title": "GroqVoice"
   },
   "background": {
     "service_worker": "background.js"

@@ -12,10 +12,26 @@
   shadowHost.id = "extension-modal";
 
   // Estilos do shadowHost
+  // Carregar posição salva ou usar padrão
+  const loadSavedPosition = () => {
+    const hostname = window.location.hostname;
+    chrome.storage.local.get(`position_${hostname}`, (data) => {
+      const savedPosition = data[`position_${hostname}`];
+      if (savedPosition) {
+        shadowHost.style.left = savedPosition.left;
+        shadowHost.style.top = savedPosition.top;
+      } else {
+        // Posição padrão ajustada para evitar sobreposições
+        const rect = document.body.getBoundingClientRect();
+        shadowHost.style.left = `${rect.width - 250}px`; // 250px = largura do modal + margem
+        shadowHost.style.top = `${Math.min(rect.height * 0.1, 100)}px`; // 10% da altura ou máximo 100px
+      }
+    });
+  };
+
   shadowHost.style.position = "fixed";
-  shadowHost.style.top = "10%";
-  shadowHost.style.right = "10%";
   shadowHost.style.zIndex = "10000";
+  loadSavedPosition();
 
   // Anexar o container ao body
   document.body.appendChild(shadowHost);
@@ -92,6 +108,22 @@
 
   .modal button:hover {
     background-color: #0056b3; /* Cor de fundo ao passar o mouse */
+  }
+
+  .copy-button {
+    margin-top: 10px !important;
+    padding: 5px 15px !important;
+    font-size: 14px !important;
+    background-color: #28a745 !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    transition: background-color 0.3s ease !important;
+  }
+
+  .copy-button:hover {
+    background-color: #218838 !important;
   }
 
   .close-btn {
@@ -227,6 +259,7 @@
   closeButton.innerText = "✖";
   closeButton.className = "close-btn";
   closeButton.addEventListener("click", () => {
+    savePosition();
     document.body.removeChild(shadowHost);
     document.removeEventListener("focusin", updateLastFocusedElement);
   });
@@ -298,8 +331,11 @@
     navigator.mediaDevices
       .getUserMedia({ audio: true })
       .then((stream) => {
-        // Inicializar MediaRecorder
-        mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+        // Inicializar MediaRecorder com configurações otimizadas
+        mediaRecorder = new MediaRecorder(stream, {
+          mimeType: "audio/webm",
+          audioBitsPerSecond: 128000, // 128kbps para melhor compressão
+        });
         recordedChunks = [];
 
         mediaRecorder.ondataavailable = (e) => {
@@ -308,12 +344,14 @@
           }
         };
 
+        // Configurar para enviar chunks a cada 250ms
+        mediaRecorder.start(250);
+
         mediaRecorder.onstop = () => {
           const audioBlob = new Blob(recordedChunks, { type: "audio/webm" });
           sendAudioToAPI(audioBlob);
         };
 
-        mediaRecorder.start();
         gravando = true;
         output.innerText = "Gravando...";
 
@@ -358,22 +396,89 @@
     }
   });
 
-  // Função para carregar a chave de API armazenada
-  let GROQ_API_KEY = "";
+  // Configurações padrão
+  let config = {
+    theme: "light",
+    showSpectrum: true,
+    autoClose: false,
+    showCopyButton: true,
+    truncateLength: 500, // 0 significa sem limite
+  };
 
-  const loadApiKey = () => {
-    chrome.storage.local.get("GROQ_API_KEY", (data) => {
+  // Função para truncar texto
+  const truncateText = (text) => {
+    if (config.truncateLength > 0 && text.length > config.truncateLength) {
+      return text.substring(0, config.truncateLength) + "...";
+    }
+    return text;
+  };
+
+  // Função para criar botão de copiar
+  const createCopyButton = (text) => {
+    const copyButton = document.createElement("button");
+    copyButton.innerText = "Copiar";
+    copyButton.className = "copy-button";
+    copyButton.addEventListener("click", () => {
+      navigator.clipboard
+        .writeText(text)
+        .then(() => {
+          copyButton.innerText = "Copiado!";
+          setTimeout(() => {
+            copyButton.innerText = "Copiar";
+          }, 2000);
+        })
+        .catch((err) => {
+          console.error("Erro ao copiar:", err);
+          copyButton.innerText = "Erro";
+        });
+    });
+    return copyButton;
+  };
+
+  // Função para carregar as configurações
+  const loadConfig = () => {
+    chrome.storage.local.get(["config", "GROQ_API_KEY"], (data) => {
+      if (data.config) {
+        config = { ...config, ...data.config };
+        updateTheme();
+        updateSpectrum();
+        if (config.autoClose) {
+          modal.classList.add("auto-close-active");
+        }
+      }
+
       if (data.GROQ_API_KEY) {
         GROQ_API_KEY = data.GROQ_API_KEY;
-        apiKeyInput.value = GROQ_API_KEY; // Opcional: preencher o campo com a chave armazenada
+        apiKeyInput.value = GROQ_API_KEY;
       } else {
         output.innerText = "Por favor, defina sua chave de API.";
       }
     });
   };
 
-  // Chamar a função ao iniciar
-  loadApiKey();
+  // Função para salvar as configurações
+  const saveConfig = () => {
+    chrome.storage.local.set({ config });
+  };
+
+  // Função para atualizar o tema
+  const updateTheme = () => {
+    if (config.theme === "dark") {
+      modal.style.backgroundColor = "#2c2c2c";
+      modal.style.color = "#fff";
+    } else {
+      modal.style.backgroundColor = "#f9f9f9";
+      modal.style.color = "#333";
+    }
+  };
+
+  // Função para atualizar a visibilidade do espectro
+  const updateSpectrum = () => {
+    canvas.style.display = config.showSpectrum ? "block" : "none";
+  };
+
+  // Carregar configurações ao iniciar
+  loadConfig();
 
   // Função para enviar o áudio para a API do Groq
   const sendAudioToAPI = (audioBlob) => {
@@ -428,14 +533,36 @@
     // Remover espaços em branco iniciais
     transcribedText = transcribedText.trimStart();
 
+    // Truncar o texto se necessário
+    const displayText = truncateText(transcribedText);
+
+    // Limpar o conteúdo anterior do output
+    output.innerHTML = "";
+
+    // Criar div para o texto
+    const textDiv = document.createElement("div");
+    textDiv.innerText = displayText;
+    output.appendChild(textDiv);
+
+    // Adicionar botão de copiar se configurado
+    if (config.showCopyButton) {
+      output.appendChild(createCopyButton(transcribedText));
+    }
+
     if (lastFocusedElement && !shadowHost.contains(lastFocusedElement)) {
       if (
         lastFocusedElement.tagName === "INPUT" ||
         lastFocusedElement.tagName === "TEXTAREA"
       ) {
         // Adicionar o texto ao final do conteúdo existente
-        lastFocusedElement.value += transcribedText;
-        output.innerText = transcribedText;
+        const oldValue = lastFocusedElement.value;
+        lastFocusedElement.value = oldValue + transcribedText;
+
+        // Disparar eventos para notificar o DeepSeek da mudança
+        lastFocusedElement.dispatchEvent(new Event("input", { bubbles: true }));
+        lastFocusedElement.dispatchEvent(
+          new Event("change", { bubbles: true })
+        );
       } else if (lastFocusedElement.isContentEditable) {
         // Inserir o texto na posição atual do cursor
         lastFocusedElement.focus();
@@ -455,33 +582,142 @@
           // Se não houver seleção, adicionar ao final
           lastFocusedElement.innerHTML += transcribedText;
         }
-
-        output.innerText = transcribedText;
       } else {
-        output.innerText = `Elemento selecionado não é compatível.\n\n${transcribedText}`;
+        textDiv.innerText = `Elemento selecionado não é compatível.\n\n${displayText}`;
       }
     } else {
-      output.innerText = `Nenhum campo de texto selecionado.\n\n${transcribedText}`;
+      textDiv.innerText = `Nenhum campo de texto selecionado.\n\n${displayText}`;
     }
+  };
+
+  // Função para verificar se um elemento é um campo de texto válido
+  const isValidTextField = (element) => {
+    if (!element) return false;
+
+    // Verificar atributo role
+    const role = element.getAttribute("role");
+    if (role === "textbox" || role === "searchbox") return true;
+
+    // Verificar tag e tipo para inputs
+    if (element.tagName === "INPUT") {
+      const validTypes = ["text", "search", "email", "url", "tel"];
+      return validTypes.includes(element.type);
+    }
+
+    // Verificar outros tipos de elementos
+    if (element.tagName === "TEXTAREA") return true;
+    if (element.isContentEditable) return true;
+
+    // Verificar editores rich text conhecidos
+    const isRichTextEditor =
+      element.classList.contains("mce-content-body") || // TinyMCE
+      element.classList.contains("cke_editable") || // CKEditor
+      element.classList.contains("ql-editor") || // Quill
+      element.classList.contains("c92459f0"); // DeepSeek
+    if (isRichTextEditor) return true;
+
+    return false;
+  };
+
+  // Função para buscar o elemento editável mais próximo
+  const findClosestEditableElement = (element) => {
+    if (!element) return null;
+    if (isValidTextField(element)) return element;
+
+    // Verificar elementos pai
+    let parent = element.parentElement;
+    while (parent) {
+      if (isValidTextField(parent)) return parent;
+      parent = parent.parentElement;
+    }
+
+    return null;
   };
 
   // Listener para atualizar o último campo de texto focado
   const updateLastFocusedElement = (event) => {
     const target = event.target;
+    const editableElement = findClosestEditableElement(target);
 
-    if (
-      (target.tagName === "INPUT" && target.type === "text") ||
-      target.tagName === "TEXTAREA" ||
-      target.isContentEditable
-    ) {
-      lastFocusedElement = target;
+    if (editableElement) {
+      lastFocusedElement = editableElement;
+      // Adicionar destaque visual
+      updateVisualFeedback();
     }
   };
 
-  // Adicionar o listener ao documento
+  // Função para atualizar feedback visual do campo selecionado
+  const updateVisualFeedback = () => {
+    // Remover highlight anterior
+    const previousHighlight = document.querySelector(".groqvoice-highlight");
+    if (previousHighlight) {
+      previousHighlight.classList.remove("groqvoice-highlight");
+    }
+
+    if (lastFocusedElement && !shadowHost.contains(lastFocusedElement)) {
+      lastFocusedElement.classList.add("groqvoice-highlight");
+    }
+  };
+
+  // Adicionar estilo para highlight
+  const highlightStyle = document.createElement("style");
+  highlightStyle.textContent = `
+    .groqvoice-highlight {
+      outline: 2px solid #007bff !important;
+      outline-offset: 2px !important;
+    }
+  `;
+  document.head.appendChild(highlightStyle);
+
+  // Adicionar listeners
   document.addEventListener("focusin", updateLastFocusedElement);
 
+  // Tentar detectar e adicionar listeners para iframes
+  const setupIframeListeners = () => {
+    document.querySelectorAll("iframe").forEach((iframe) => {
+      try {
+        const iframeDoc =
+          iframe.contentDocument || iframe.contentWindow.document;
+        iframeDoc.addEventListener("focusin", updateLastFocusedElement);
+      } catch (error) {
+        console.log(
+          "Não foi possível acessar iframe (possível restrição de origem cruzada)"
+        );
+      }
+    });
+  };
+
+  // Adicionar listeners iniciais para iframes
+  setupIframeListeners();
+
+  // Observar novos iframes adicionados dinamicamente
+  const iframeObserver = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      mutation.addedNodes.forEach((node) => {
+        if (node.tagName === "IFRAME") {
+          setTimeout(() => setupIframeListeners(), 100); // Pequeno delay para garantir que o iframe esteja carregado
+        }
+      });
+    });
+  });
+
+  iframeObserver.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
+
   // Tornar o modal arrastável
+  // Função para salvar a posição atual
+  const savePosition = () => {
+    const hostname = window.location.hostname;
+    chrome.storage.local.set({
+      [`position_${hostname}`]: {
+        left: shadowHost.style.left,
+        top: shadowHost.style.top,
+      },
+    });
+  };
+
   let isDragging = false;
   let offsetX = 0;
   let offsetY = 0;
@@ -507,7 +743,10 @@
   };
 
   const onMouseUp = () => {
-    isDragging = false;
+    if (isDragging) {
+      savePosition();
+      isDragging = false;
+    }
   };
 
   modal.addEventListener("mousedown", onMouseDown);
@@ -543,6 +782,99 @@
     draw();
   }
 
+  // Container para botão de copiar
+  const copyButtonContainer = document.createElement("div");
+  copyButtonContainer.style.marginTop = "10px";
+
+  const copyButtonLabel = document.createElement("label");
+  copyButtonLabel.innerHTML = `
+    <input type="checkbox" ${config.showCopyButton ? "checked" : ""}>
+    Mostrar botão de copiar
+  `;
+  copyButtonLabel.querySelector("input").addEventListener("change", (e) => {
+    config.showCopyButton = e.target.checked;
+    saveConfig();
+  });
+
+  // Container para limite de caracteres
+  const truncateContainer = document.createElement("div");
+  truncateContainer.style.marginTop = "10px";
+
+  const truncateLabel = document.createElement("label");
+  truncateLabel.innerText = "Limite de caracteres (0 = sem limite):";
+  truncateLabel.style.display = "block";
+
+  const truncateInput = document.createElement("input");
+  truncateInput.type = "number";
+  truncateInput.min = "0";
+  truncateInput.value = config.truncateLength;
+  truncateInput.style.width = "100px";
+  truncateInput.style.marginTop = "5px";
+
+  truncateInput.addEventListener("change", (e) => {
+    const value = parseInt(e.target.value);
+    config.truncateLength = value >= 0 ? value : 0;
+    saveConfig();
+  });
+
+  // Criar controles de configuração adicionais
+  const themeContainer = document.createElement("div");
+  themeContainer.style.marginTop = "15px";
+
+  const themeLabel = document.createElement("label");
+  settingsModal.appendChild(copyButtonContainer);
+  copyButtonContainer.appendChild(copyButtonLabel);
+  settingsModal.appendChild(truncateContainer);
+  truncateContainer.appendChild(truncateLabel);
+  truncateContainer.appendChild(truncateInput);
+
+  themeLabel.innerText = "Tema:";
+
+  const themeSelect = document.createElement("select");
+  themeSelect.style.marginLeft = "10px";
+  themeSelect.innerHTML = `
+    <option value="light">Claro</option>
+    <option value="dark">Escuro</option>
+  `;
+  themeSelect.value = config.theme;
+  themeSelect.addEventListener("change", () => {
+    config.theme = themeSelect.value;
+    updateTheme();
+    saveConfig();
+  });
+
+  const spectrumContainer = document.createElement("div");
+  spectrumContainer.style.marginTop = "10px";
+
+  const spectrumLabel = document.createElement("label");
+  spectrumLabel.innerHTML = `
+    <input type="checkbox" ${config.showSpectrum ? "checked" : ""}>
+    Mostrar espectro de áudio
+  `;
+  spectrumLabel.querySelector("input").addEventListener("change", (e) => {
+    config.showSpectrum = e.target.checked;
+    updateSpectrum();
+    saveConfig();
+  });
+
+  const autoCloseContainer = document.createElement("div");
+  autoCloseContainer.style.marginTop = "10px";
+
+  const autoCloseLabel = document.createElement("label");
+  autoCloseLabel.innerHTML = `
+    <input type="checkbox" ${config.autoClose ? "checked" : ""}>
+    Auto-ocultar quando inativo
+  `;
+  autoCloseLabel.querySelector("input").addEventListener("change", (e) => {
+    config.autoClose = e.target.checked;
+    if (config.autoClose) {
+      modal.classList.add("auto-close-active");
+    } else {
+      modal.classList.remove("auto-close-active");
+    }
+    saveConfig();
+  });
+
   // Montar o modal de configurações
   settingsModal.appendChild(closeSettingsButton);
   settingsModal.appendChild(settingsHeader);
@@ -550,6 +882,15 @@
   settingsModal.appendChild(apiKeyInput);
   settingsModal.appendChild(saveApiKeyButton);
   settingsModal.appendChild(settingsMessage);
+
+  // Adicionar novos controles
+  themeContainer.appendChild(themeLabel);
+  themeContainer.appendChild(themeSelect);
+  settingsModal.appendChild(themeContainer);
+  settingsModal.appendChild(spectrumContainer);
+  spectrumContainer.appendChild(spectrumLabel);
+  settingsModal.appendChild(autoCloseContainer);
+  autoCloseContainer.appendChild(autoCloseLabel);
 
   // Montar o modal
   modal.appendChild(closeButton);
