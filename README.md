@@ -10,7 +10,7 @@
 
 GroqVoice integra o modelo _whisper-large-v3-turbo_ para oferecer transcrições de voz em texto rápidas e precisas. A extensão é capaz de reconhecer termos técnicos, nomes próprios e inserir a pontuação de forma inteligente, tornando-a superior a outras ferramentas de transcrição disponíveis.
 
-## Por Que Usar
+## Por Que GroqVoice
 
 - **Processamento Rápido:** Transcrições quase em tempo real graças ao modelo _whisper-turbo_.
 - **Precisão Avançada:** Reconhecimento aprimorado de termos técnicos e nomes, com aplicação correta de pontuação.
@@ -55,7 +55,7 @@ Este projeto está licenciado sob a [Licença GNU](./LICENSE).
 
 GroqVoice integrates the _whisper-large-v3-turbo_ model to provide fast and accurate voice-to-text transcriptions. The extension intelligently recognizes technical terms, proper names, and automatically adds punctuation, making it superior to other available transcription tools.
 
-## Why Use It
+## Why GroqVoice
 
 - **Fast Processing:** Near real-time transcriptions powered by the _whisper-turbo_ model.
 - **Advanced Accuracy:** Enhanced recognition of technical terms and names with proper punctuation.
