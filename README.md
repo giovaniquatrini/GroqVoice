@@ -32,6 +32,8 @@ https://github.com/user-attachments/assets/100dd8e1-7222-42ce-8882-83d6c28c3749
 
 ## Uso
 
+Você pode também iniciar a transcrição rapidamente com o atalho **Ctrl+Espaço** (ou **Command+Space** no macOS), que abre o modal e inicia a gravação automaticamente.
+
 1. Após a instalação, ative a extensão.
 2. Clique no ícone da extensão para iniciar a transcrição.
 3. Siga as instruções na tela para configurar e começar a transcrever sua voz.
@@ -76,6 +78,8 @@ GroqVoice integrates the _whisper-large-v3-turbo_ model to provide fast and accu
 4. **Load the extension:** Click "Load unpacked" and select the project folder.
 
 ## Usage
+
+You can also quickly start transcription using the shortcut **Ctrl+Space** (or **Command+Space** on macOS), which opens the modal and starts recording automatically.
 
 1. After installation, enable the extension.
 2. Click on the extension icon to start the voice transcription.

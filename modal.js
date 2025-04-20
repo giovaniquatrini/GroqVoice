@@ -905,4 +905,9 @@
   // Anexar o estilo e o modal ao Shadow Root
   shadowRoot.appendChild(style);
   shadowRoot.appendChild(modal);
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === "toggle-recording") {
+      micSVG.click();
+    }
+  });
 })();
