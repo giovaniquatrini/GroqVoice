@@ -630,7 +630,8 @@
     // Adicionar botão de copiar se configurado
     if (config.showCopyButton) {
       output.appendChild(createCopyButton(transcribedText));
-    }    if (lastFocusedElement && !shadowHost.contains(lastFocusedElement)) {
+    }
+    if (lastFocusedElement && !shadowHost.contains(lastFocusedElement)) {
       if (
         lastFocusedElement.tagName === "INPUT" ||
         lastFocusedElement.tagName === "TEXTAREA"
@@ -671,7 +672,9 @@
             // Tentar também disparar o evento de submit no formulário pai, se existir
             const form = lastFocusedElement.closest("form");
             if (form) {
-              form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+              form.dispatchEvent(
+                new Event("submit", { bubbles: true, cancelable: true })
+              );
             }
           }, 100);
         }
