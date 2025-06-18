@@ -1,8 +1,18 @@
 (function () {
   // Verificar se o modal já existe para não adicionar múltiplos
   if (document.getElementById("extension-modal")) {
+    console.log("GroqVoice modal já existe, evitando duplicação");
     return;
   }
+
+  // Verificar se já existe uma instância em execução
+  if (window.groqVoiceInstance) {
+    console.log("GroqVoice já está em execução, evitando duplicação");
+    return;
+  }
+
+  // Marcar que uma instância está sendo executada
+  window.groqVoiceInstance = true;
 
   // Variável para armazenar o último campo de texto focado
   let lastFocusedElement = null;
@@ -124,6 +134,22 @@
 
   .copy-button:hover {
     background-color: #218838 !important;
+  }
+
+  .retry-button {
+    margin-top: 10px !important;
+    padding: 8px 15px !important;
+    font-size: 14px !important;
+    background-color: #ff6b35 !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    transition: background-color 0.3s ease !important;
+  }
+
+  .retry-button:hover {
+    background-color: #e55a2b !important;
   }
 
   .close-btn {
@@ -262,6 +288,15 @@
     savePosition();
     document.body.removeChild(shadowHost);
     document.removeEventListener("focusin", updateLastFocusedElement);
+
+    // Limpar a instância global
+    window.groqVoiceInstance = false;
+
+    // Limpar observers
+    if (window.groqVoiceIframeObserver) {
+      window.groqVoiceIframeObserver.disconnect();
+      window.groqVoiceIframeObserver = null;
+    }
   });
 
   // Criar o modal de configurações
@@ -325,6 +360,8 @@
   let dataArray;
   let animationId;
   let source;
+  let lastAudioBlob = null; // Store the last recorded audio for retry
+  let isProcessing = false; // Flag para evitar processamento múltiplo
 
   // Função para iniciar a gravação
   const startRecording = () => {
@@ -395,7 +432,6 @@
       stopRecording();
     }
   });
-
   // Configurações padrão
   let config = {
     theme: "light",
@@ -403,6 +439,7 @@
     autoClose: false,
     showCopyButton: true,
     truncateLength: 500, // 0 significa sem limite
+    autoSend: false, // Envio automático após transcrição
   };
 
   // Função para truncar texto
@@ -433,6 +470,27 @@
         });
     });
     return copyButton;
+  };
+  // Função para criar botão de retry
+  const createRetryButton = (audioBlob) => {
+    const retryButton = document.createElement("button");
+    retryButton.innerText = "Tentar Novamente";
+    retryButton.className = "retry-button";
+    retryButton.addEventListener("click", () => {
+      // Verificar se já está processando
+      if (isProcessing) {
+        return;
+      }
+
+      // Limpar o output e mostrar spinner novamente
+      output.innerHTML = "";
+      output.innerText = "Processando...";
+      spinner.style.display = "block";
+
+      // Tentar enviar o áudio novamente
+      sendAudioToAPI(audioBlob);
+    });
+    return retryButton;
   };
 
   // Função para carregar as configurações
@@ -479,16 +537,26 @@
 
   // Carregar configurações ao iniciar
   loadConfig();
-
   // Função para enviar o áudio para a API do Groq
   const sendAudioToAPI = (audioBlob) => {
+    // Verificar se já está processando para evitar duplicação
+    if (isProcessing) {
+      console.log("Já está processando áudio, evitando duplicação");
+      return;
+    }
+
+    isProcessing = true;
+
+    // Armazenar o áudio para possível retry
+    lastAudioBlob = audioBlob;
+
     // Carregar a chave de API atualizada
     chrome.storage.local.get("GROQ_API_KEY", (data) => {
       GROQ_API_KEY = data.GROQ_API_KEY || "";
-
       if (!GROQ_API_KEY) {
         output.innerText = "Chave de API não definida.";
         spinner.style.display = "none";
+        isProcessing = false; // Reset flag
         return;
       }
 
@@ -519,11 +587,26 @@
             output.innerText = "Erro na transcrição do áudio.";
           }
           spinner.style.display = "none";
+          isProcessing = false; // Reset flag
         })
         .catch((error) => {
           console.error("Error:", error);
-          output.innerText = `Erro: ${error.message}`;
+
+          // Limpar o conteúdo anterior do output
+          output.innerHTML = "";
+
+          // Criar div para a mensagem de erro
+          const errorDiv = document.createElement("div");
+          errorDiv.innerText = `Erro: ${error.message}`;
+          errorDiv.style.color = "#d32f2f";
+          errorDiv.style.marginBottom = "10px";
+          output.appendChild(errorDiv);
+
+          // Adicionar botão de retry
+          output.appendChild(createRetryButton(audioBlob));
+
           spinner.style.display = "none";
+          isProcessing = false; // Reset flag
         });
     });
   };
@@ -547,9 +630,7 @@
     // Adicionar botão de copiar se configurado
     if (config.showCopyButton) {
       output.appendChild(createCopyButton(transcribedText));
-    }
-
-    if (lastFocusedElement && !shadowHost.contains(lastFocusedElement)) {
+    }    if (lastFocusedElement && !shadowHost.contains(lastFocusedElement)) {
       if (
         lastFocusedElement.tagName === "INPUT" ||
         lastFocusedElement.tagName === "TEXTAREA"
@@ -558,11 +639,42 @@
         const oldValue = lastFocusedElement.value;
         lastFocusedElement.value = oldValue + transcribedText;
 
-        // Disparar eventos para notificar o DeepSeek da mudança
+        // Disparar eventos para notificar o sistema da mudança
         lastFocusedElement.dispatchEvent(new Event("input", { bubbles: true }));
         lastFocusedElement.dispatchEvent(
           new Event("change", { bubbles: true })
         );
+
+        // Envio automático se configurado
+        if (config.autoSend) {
+          setTimeout(() => {
+            const enterEvent = new KeyboardEvent("keydown", {
+              key: "Enter",
+              code: "Enter",
+              keyCode: 13,
+              which: 13,
+              bubbles: true,
+              cancelable: true,
+            });
+            lastFocusedElement.dispatchEvent(enterEvent);
+
+            const enterEventUp = new KeyboardEvent("keyup", {
+              key: "Enter",
+              code: "Enter",
+              keyCode: 13,
+              which: 13,
+              bubbles: true,
+              cancelable: true,
+            });
+            lastFocusedElement.dispatchEvent(enterEventUp);
+
+            // Tentar também disparar o evento de submit no formulário pai, se existir
+            const form = lastFocusedElement.closest("form");
+            if (form) {
+              form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+            }
+          }, 100);
+        }
       } else if (lastFocusedElement.isContentEditable) {
         // Inserir o texto na posição atual do cursor
         lastFocusedElement.focus();
@@ -581,6 +693,31 @@
         } else {
           // Se não houver seleção, adicionar ao final
           lastFocusedElement.innerHTML += transcribedText;
+        }
+
+        // Envio automático para elementos contentEditable se configurado
+        if (config.autoSend) {
+          setTimeout(() => {
+            const enterEvent = new KeyboardEvent("keydown", {
+              key: "Enter",
+              code: "Enter",
+              keyCode: 13,
+              which: 13,
+              bubbles: true,
+              cancelable: true,
+            });
+            lastFocusedElement.dispatchEvent(enterEvent);
+
+            const enterEventUp = new KeyboardEvent("keyup", {
+              key: "Enter",
+              code: "Enter",
+              keyCode: 13,
+              which: 13,
+              bubbles: true,
+              cancelable: true,
+            });
+            lastFocusedElement.dispatchEvent(enterEventUp);
+          }, 100);
         }
       } else {
         textDiv.innerText = `Elemento selecionado não é compatível.\n\n${displayText}`;
@@ -689,9 +826,8 @@
 
   // Adicionar listeners iniciais para iframes
   setupIframeListeners();
-
   // Observar novos iframes adicionados dinamicamente
-  const iframeObserver = new MutationObserver((mutations) => {
+  window.groqVoiceIframeObserver = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
       mutation.addedNodes.forEach((node) => {
         if (node.tagName === "IFRAME") {
@@ -701,7 +837,7 @@
     });
   });
 
-  iframeObserver.observe(document.body, {
+  window.groqVoiceIframeObserver.observe(document.body, {
     childList: true,
     subtree: true,
   });
@@ -856,7 +992,6 @@
     updateSpectrum();
     saveConfig();
   });
-
   const autoCloseContainer = document.createElement("div");
   autoCloseContainer.style.marginTop = "10px";
 
@@ -875,6 +1010,20 @@
     saveConfig();
   });
 
+  // Container para envio automático
+  const autoSendContainer = document.createElement("div");
+  autoSendContainer.style.marginTop = "10px";
+
+  const autoSendLabel = document.createElement("label");
+  autoSendLabel.innerHTML = `
+    <input type="checkbox" ${config.autoSend ? "checked" : ""}>
+    Envio automático após transcrição
+  `;
+  autoSendLabel.querySelector("input").addEventListener("change", (e) => {
+    config.autoSend = e.target.checked;
+    saveConfig();
+  });
+
   // Montar o modal de configurações
   settingsModal.appendChild(closeSettingsButton);
   settingsModal.appendChild(settingsHeader);
@@ -882,7 +1031,6 @@
   settingsModal.appendChild(apiKeyInput);
   settingsModal.appendChild(saveApiKeyButton);
   settingsModal.appendChild(settingsMessage);
-
   // Adicionar novos controles
   themeContainer.appendChild(themeLabel);
   themeContainer.appendChild(themeSelect);
@@ -891,6 +1039,8 @@
   spectrumContainer.appendChild(spectrumLabel);
   settingsModal.appendChild(autoCloseContainer);
   autoCloseContainer.appendChild(autoCloseLabel);
+  settingsModal.appendChild(autoSendContainer);
+  autoSendContainer.appendChild(autoSendLabel);
 
   // Montar o modal
   modal.appendChild(closeButton);
