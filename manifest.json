@@ -3,8 +3,15 @@
   "name": "GroqVoice",
   "version": "2.1",
   "description": "Facilitando sua vida através de IA.",
-  "permissions": ["storage", "activeTab", "clipboardWrite", "scripting"],
+  "permissions": ["storage", "activeTab", "clipboardWrite"],
   "host_permissions": ["https://api.groq.com/*"],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["dist/bundle.js"],
+      "run_at": "document_idle"
+    }
+  ],
   "icons": {
     "16": "images/logo.png",
     "48": "images/logo.png",

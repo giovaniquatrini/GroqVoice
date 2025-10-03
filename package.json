@@ -1,0 +1,16 @@
+{
+  "name": "groqvoice",
+  "version": "1.0.0",
+  "description": "**GroqVoice** é uma extensão para o Chrome que utiliza o modelo _whisper-large-v3-turbo_ via Groq API para transcrever voz em texto com alta velocidade e precisão.",
+  "main": "background.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",    "build": "esbuild src/modules/main.ts --bundle --outfile=dist/bundle.js --platform=browser"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "esbuild": "^0.25.5",
+    "typescript": "^5.8.3"
+  }
+}
